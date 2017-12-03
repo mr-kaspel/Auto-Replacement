@@ -1,4 +1,6 @@
 body {
+	margin: 0;
+	padding: 0;
 	font-family: Helvetica Neue, Arial, sans-serif;
 }
 
@@ -9,23 +11,37 @@ h1 {
 	font-weight: 100;
 	text-align: center;
 }
+
 progress {
 	text-align: center;
 }
 
+footer {
+	width: 100%;
+	position: fixed;
+	bottom: 0;
+	padding: 1em;
+	text-align: center;
+	background: #eee;
+}
+
+form i {
+	margin-right: 10px;
+}
+
 input {
 	outline:none;
-	margin: .7em 0;
+	margin: .2em 0 .7em 0;
 	width: 14em;
 	font-size: 16px;
-	padding: .1em 0.5em;
+	padding: .2em;
 }
 
 input:focus {
-	border: 2px solid #9b9eff;
+	border: 2px solid  #0088cc;
 }
 
-input#submit {
+input[type="submit"] {
 	background: #65c178;
 	border-radius: 5px;
 	border: 0;
@@ -34,11 +50,15 @@ input#submit {
 	margin-bottom: 1em;
 }
 
-input#submit:hover{
+input[type="submit"]:hover {
 	box-shadow: 3px 3px 2px rgba(0,0,0,0.5);
 }
 
-.wrapper {
+input[type="submit"]:active {
+	color: #424b5f;
+}
+
+.wrapper, .ptogress  {
 	display: flex;
 	justify-content: center;
 	text-align: center;
@@ -46,6 +66,10 @@ input#submit:hover{
 
 .wrapper label {
 	color: lightgray;
+}
+
+.ptogress {
+	margin: 1em;
 }
 
 .meanings {
@@ -63,8 +87,23 @@ input#submit:hover{
 	color: #fff;
 }
 
-.ptogress {
-	display: flex;
-	justify-content: center;
-	margin: 1em;
+.flag {
+	padding: .5em;
+	background: #424b5f;
+	width: 4em;
+	position: absolute;
+	font-size: 20px;
+	color: #fff;
+	text-align: right;
+	transition: .5s;
+
+}
+
+.flag:hover {
+	width: 5em;
+}
+
+div#return {
+	width: 20em;
+	padding: 1em;
 }

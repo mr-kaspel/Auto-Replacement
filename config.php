@@ -13,12 +13,12 @@ $link = mysqli_connect($host, $user, $password, $database)
 
 
 $query = "DECLARE done INT DEFAULT 0;
-DECLARE cur1 CURSOR FOR
+DECLARE substitution CURSOR FOR
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'my_table';
 DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
 
-OPEN cur1;
+OPEN substitution;
 REPEAT
 SET s = concat(
 'UPDATE my_table SET ',
@@ -26,15 +26,14 @@ column_name,
 ' = REPLACE(', column_name, ', {$isval}, {$isreplace});');
 PREPARE stmt2 FROM s;
 EXECUTE stmt2;
-FETCH cur1 INTO a;
+FETCH substitution INTO a;
 UNTIL done END REPEAT;
-CLOSE cur1";
+CLOSE substitution";
 
 $result = mysqli_query($link, $query) or die("Ошибка, значене не найдено. <br>" . mysqli_error($link));
 if( $result ) {
 	echo "Замена занчения прошла успешно $company";
 }
 
-// закрываем подключение
 mysqli_close($link);
 ?>
