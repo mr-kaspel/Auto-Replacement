@@ -1,14 +1,37 @@
 # Auto-Replacement
 
-  * подключение к BD
-  * экспорт BD
-  * поиск по *.sql значения
-  * замена на необходмое значение
-  * импорт измененого *.sql
+Основные  три возможности
+  * Сделать бэкап указанной базы данных;
+  * Перезаписать значения в базе данных или в файлах;
+  * Поиск по вхождениям в файлах.
 
+<p align="center">
+<img src="/img/imag_1.PNG" alt="Interface">
+</p>
 
-![alt text](/img/imag_1.PNG)
+## Панель управления возможностями всей формы.
+<p align="center">
+<img src="/img/imag_2.PNG" alt="Panel">
+</p>
 
-```
-You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'DECLARE done INT DEFAULT 0; DECLARE cur1 CURSOR FOR SELECT column_name FROM in' at line 1
-```
+### Описания возможностей имеется в информационных блоках
+
+Поиск только по файлам. В этом случае бэкап базы данных не делается.
+<p align="center">
+<img src="/img/imag_3.PNG" alt="Search">
+</p>
+
+Если необходимо, есть возможность заменять искомое значения в найденных совпадениях содержимого файлов.
+<p align="center">
+<img src="/img/imag_4.PNG" alt="Replacement">
+</p>
+
+После поиска, только по файлам, возможно выбрать файлы в которых необходимо произвести замену.
+<p align="center">
+<img src="/img/imag_5.PNG" alt="Replacement">
+</p>
+
+Поиск и замена в базе данных.
+<p align="center">
+<img src="/img/imag_6.PNG" alt="Replacement">
+</p>
