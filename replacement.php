@@ -1,6 +1,20 @@
 <?php
 	header('Content-Type: text/html; charset=utf-8');
 	error_reporting(0);
+	$arrip = ['127.0.0.1'];
+	$bul = 1;
+	if(count($arrip) > 0) {
+		foreach($arrip as $val) {
+			if(strripos($_SERVER['REMOTE_ADDR'], $val) !== false) $bul = 0; break;
+		}
+	} else {
+		$bul = 0;
+	}
+	if($bul) {
+		header("HTTP/1.1 404 Not Found");
+		die();
+	}
+
 	$userbd = '';
 	$db_ ='';
 	$passwordbd = '';
@@ -149,14 +163,16 @@
 	}
 
 	function searchByContentsOfFiles($searchval, $valreplace, $dirname, $param) {
+
 		if(isset($searchval)) {
 			function search($data, $searchval, $valreplace, $dirname, $param) {
+				$result = '';
 				foreach(scandir($data) as $key => $val) {
 					$dirN = $data.'\\'.$val;
-					$arrimage = ['.gif', '.jpg', '.jpeg', '.png', '.bmp', '.dib', '.svg', '.tif', '.tiff'];
+					$arrimage = ['.gif', '.jpg', '.jpeg', '.png', '.bmp', '.dib', '.svg', '.tif', '.tiff', 'zip'];
 					if($val !== '.' && $val !== '..' && !array_search(substr($val, strripos($val,'.')), $arrimage)) {
 						if(is_dir($dirN."\\")){
-							search($dirN, $searchval, $valreplace, $dirname, $param);
+							$result .= search($dirN, $searchval, $valreplace, $dirname, $param);
 						} else if(filesize($dirN) < 9999999 && strripos(file_get_contents($dirN), $searchval)) {
 							$ab = '';
 							/*foreach(file($dirN) as $num => $str) {
@@ -201,10 +217,7 @@
 
 	function parsingData($data1, $data2, $data3, $data4, $data5, $textfile) {
 		return $nameCMS = data5;
-		/*Joomla WordPress*/
-		/*if() {
 
-		}*/
 	}
 
 
@@ -268,6 +281,7 @@
 				break;
 		}
 	} else {
+		if(count($arrip) == 0) $report .= '<p><mark>Заполните IP в запущенном файле!</mark></p>';
 		$report .= strlen($nameCMS) == 0 ? '<p><mark>CMS не определена!</mark> </p> <p>Введите данные учетной записи BD.<p>' : '<p>CMS: <b>'.$nameCMS.'</b></p>';
 		$report .= strlen($linkbd) == 0 ? '<p>host_bd: <mark>не найден</mark>.</p>' : '<p>host_bd: <b>найден</b>.</p>';
 		$report .= strlen($userbd) == 0 ? '<p>host_bd: <mark>не найден</mark>.</p>' : '<p>login_bd: <b>найден</b>.</p>';
@@ -391,6 +405,21 @@
 		.val_result_search {
 			display: none;
 		}
+		span.address {
+			width: 68%;
+			display: inline-block;
+			white-space: nowrap;
+			line-height: 15px;
+			overflow: hidden;
+			-ms-overflow-style: none;
+		}
+		.res:hover span.address {
+			overflow: auto;
+		}
+		span.address::-webkit-scrollbar {
+			width: 0;
+			height: 0;
+		}
 		.arr-addr {
 			display: none;
 		}
@@ -429,7 +458,6 @@
 			border-bottom: 1px solid #e0e0e0;
 		}
 	</style>
-
 	<section class="wrapper">
 		<div class="content">
 			<form id="substitution" action="" method="POST">
@@ -552,6 +580,11 @@
 	</section>
 
 	<script>
+		var addrElem = document.querySelectorAll('.address');
+		if(addrElem.length > 0) for(var i = 0; i < addrElem.length; i++) addrElem[i].scrollLeft = 1800;
+		
+
+
 		if(document.querySelector('.coincidences')) document.querySelector('.coincidences').innerHTML = document.querySelectorAll('section p.res').length;
 		function showPass (data) {
 			document.getElementById('passwd').type = data ? 'text' : 'password';
@@ -649,7 +682,6 @@
 					labelshowpass.classList.remove('off');
 
 					typeAction.value = '2';
-					//class="off"
 			}else {
 				textSearch.disabled = false;
 				textSearch.required = true;
@@ -696,7 +728,7 @@
 
 		function newBackup (data) {
 			var elem = document.getElementById('new_name_bd');
-			
+
 			if(data) {
 				elem.disabled = false;
 				elem.required = true;
@@ -704,7 +736,9 @@
 				elem.disabled = true;
 				elem.required = false;
 			}
+
 		}
+
 		var documentrestore = document.getElementById('restore');
 
 		if(documentrestore) documentrestore.addEventListener('click', function(event) {
@@ -715,16 +749,15 @@
 		function recordFullAddred() {
 			var textarea = document.querySelector('.arr-addr'),
 					fuladdr = this.parentNode.parentNode.childNodes[1].getAttribute('full-addr');
-
 			if(this.checked) {
 				textarea.value +=fuladdr+'||';
 			} else {
 				textarea.value = textarea.value.replace(fuladdr+'||', '');
 			}
 		}
+
 		function addEventListenerAll(className, event, fn) {
 			var list = document.querySelectorAll(className);
-
 			for (var i = 0, len = list.length; i < len; i++) {
 				list[i].addEventListener(event, fn, false);
 			}
