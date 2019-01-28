@@ -45,7 +45,7 @@
 		['docs/_local/config.ini.php', 'DB_User', 'DB_Password', 'DB_Database', 'DB_Host', 'Amiro.CMS']
 	];
 
-	function Export_Database($host,$user,$pass,$name, $dirname ) {
+	function Export_Database($host,$user,$pass,$name, $dirname) {
 		$arr = array();
 
 		$dblink = mysql_connect($host,$user, $pass);
@@ -72,27 +72,29 @@
 		$queryTables = $mysqli->query('SHOW TABLES');
 
 		while($row = $queryTables->fetch_row()) $target_tables[] = $row[0];
-
 		foreach($target_tables as $table) {
 			$result = $mysqli->query('SELECT * FROM '.$table);
 			$fields_amount  = $result->field_count;
 			$rows_num=$mysqli->affected_rows;
 			$res = $mysqli->query('SHOW CREATE TABLE '.$table);
 			$TableMLine = $res->fetch_row();
-			$content = (!isset($content) ? '' : $content) . "\n\n".$TableMLine[1].";\n\n";
+			$content = (!isset($content) ? '' : $content) . $TableMLine[1].";\n";
+			$innsert = '';
+			preg_match_all('/`[a-zA-Z-_]+`/i', $TableMLine[1], $m);
+			foreach($m[0] as $key => $val) if($key > 0) $innsert .= count($m[0])-1 !== $key ? $val.', ' : $val;
 
-			for ($i = 0, $st_counter = 0; $i < $fields_amount;   $i++, $st_counter=0) {
+			for ($i = 0, $st_counter = 0; $i < $fields_amount; $i++, $st_counter=0) {
 				while($row = $result->fetch_row()) {
 					if ($st_counter%100 == 0 || $st_counter == 0 ) {
-						$content .= "\nINSERT INTO ".$table." VALUES";
+						$content .=  "\nINSERT INTO `".$table."` (".$innsert.") VALUES";
 					}
 					$content .= "\n(";
 					for($j=0; $j<$fields_amount; $j++) {
 						$row[$j] = str_replace("\n","\\n", addslashes($row[$j]) );
-						if (isset($row[$j])) {
-							$content .= '"'.$row[$j].'"';
+						if (isset($row[$j]) && iconv_strlen($row[$j]) > 0) {
+							$content .= is_numeric($row[$j]) ? $row[$j] : '"'.$row[$j].'"';
 						} else {
-							$content .= '""';
+							$content .= 'NULL';
 						}
 						if ($j<($fields_amount-1)) {
 							$content.= ',';
@@ -100,16 +102,16 @@
 					}
 					$content .=")";
 					if ( (($st_counter+1)%100==0 && $st_counter!=0) || $st_counter+1==$rows_num) {
-						$content .= ";";
+						$content .= ";\n";
 					} else {
 						$content .= ",";
 					}
 					$st_counter=$st_counter+1;
 				}
-			} $content .="\n\n\n";
+			} $content .="\n";
 		}
 
-		if(file_exists($dirname.'/backup_cms_bd')) {
+		if(file_exists($dirname.'\\backup_cms_bd')) {
 			$arr[0] .= '<p>Папка для бэкапа уже существует: "'.$dirname.'\\backup_cms_bd\\".</p>';
 		} else if (!file_exists($dirname.'/backup_cms_bd') && !mkdir($dirname.'/backup_cms_bd', 0777, true)) {
 			$arr[0] .= '<p>Не удалось создать директорию для бэкапа!!!!</p>';
@@ -122,7 +124,7 @@
 		$fp = fopen($dirname.'\\backup_cms_bd\\'.$backup_name, "w");
 		fwrite($fp, $content);
 		fclose($fp);
-		$arr[0] .= '<p>Сделана резервная копия bd "'.$name.'".</p>';
+		$arr[0] .= '<p>Сделана резервная копия bd "'.$name.'".sql.</p>';
 		$arr[1] = $dirname.'\\backup_cms_bd\\'.$backup_name;
 		return $arr;
 	}
@@ -162,11 +164,30 @@
 		}
 	}
 
-	function searchByContentsOfFiles($searchval, $valreplace, $dirname, $param) {
+	function deletingChildFolders ($fileText) {
+		$sortText = $fileText;
+		foreach ($sortText as $key => $value) {
+			$arrState = explode('\\', $value);
+			$endDir = $arrState[count($arrState)];
+			foreach ($sortText as $valTwo) {
+				$arrStateTwo = explode('\\', $valTwo);
+				foreach ($arrStateTwo as $keyThree => $valThree) {
+					if($key !== count($arrStateTwo) && strripos($valThree, $endDir) !== false) {
+						unset($sortText[$key]);
+						continue;
+					}
+				}
+			}
+		}
+		return $sortText;
+	}
 
+	function searchByContentsOfFiles($searchval, $valreplace, $dirname, $param) {
+		if(file_exists($dirname.'\\state_conf.json')) file_put_contents('state_conf.json', '');
+		$folderCheck = '';
 		if(isset($searchval)) {
 			function search($data, $searchval, $valreplace, $dirname, $param) {
-				$result = '';
+				$folderCheck = false;
 				foreach(scandir($data) as $key => $val) {
 					$dirN = $data.'\\'.$val;
 					$arrimage = ['.gif', '.jpg', '.jpeg', '.png', '.bmp', '.dib', '.svg', '.tif', '.tiff', 'zip'];
@@ -190,6 +211,13 @@
 						}
 					}
 				}
+				$fd = fopen("state_conf.json", 'a+') or die("не удалось создать файл");
+				$json = json_decode(file_get_contents('state_conf.json'), true);
+				$json[] = $data;
+				//$json = deletingChildFolders ($json);
+				$json = json_encode($json);
+				fwrite($fd, $json);
+				fclose($fd);
 				return $result;
 			}
 			return search($dirname, $searchval, $valreplace, $dirname, $param);
@@ -254,7 +282,7 @@
 				$textareafulladdr = $_POST['arr-addr'] ? $_POST['arr-addr'] : '';
 
 		switch ($_POST['type_action']) {
-			case '1': // replace
+			case '1':
 				if($checksearchbd && !$checkreplactext) {
 					$arr = Export_Database($linkbd, $userbd, $passwordbd, $db_, $dirname);
 					$report .= $arr[0];
@@ -267,14 +295,14 @@
 					$report .= '<p><b>Были найдены и перезаписаны значения в файлах:</b></p>';
 					$report .= searchByContentsOfFiles($searchval, $valreplace, $dirname, 1);
 				} else {
-					// объединить и дописать загрузки бд
+					
 				}
 				break;
-			case '2': // backup
+			case '2':
 				$report .= Export_Database($linkbd, $userbd, $passwordbd, $db_, $dirname)[0];
 				$showrestore = 1;
 				break;
-			case '3': // search
+			case '3':
 				$report .= '<p><b>Number of coincidences: <span class="coincidences"></span></b></p>';
 				$report .= searchByContentsOfFiles($searchval, $valreplace, $dirname, 0);
 				$showrestore = 2;
@@ -301,163 +329,7 @@
 
 </head>
 <body>
-	<style>
-		body {
-			margin: 0;
-			padding: 0;
-			background: #eee;
-			font-family: "Segoe UI", "Source Sans Pro", Calibri, Candara, Arial, sans-serif;
-			font-size: 15px;
-			line-height: 1.58;
-			letter-spacing: -.003em;
-		}
-		.content {
-			height: 100vh;
-			display: -webkit-box;
-			display: -moz-box;
-			display: -ms-flexbox;
-			display: -webkit-flex;
-			display: flex;
-			justify-content: center;
-			align-items:center;
-		}
-		form {
-			width: 300px;
-			background: #fff;
-			padding: 1em;
-			border-radius: 7px;
-			box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);
-		}
-		form > fieldset {
-			border: 1px solid #eee;
-			margin-bottom: 10px;
-		}
-		form > fieldset > legend {
-			text-transform: uppercase;
-			font-size: 12px;
-		}
-		fieldset > ul {
-			list-style: none;
-			margin: 0;
-			padding: 0;
-		}
-		fieldset > ul ul{
-			list-style: none;
-			padding-left: 20px;
-		}
-		form input[type="text"],
-		form input[type="password"] {
-			width: 100%;
-			padding: 5px 7px;
-			border: 1px solid #ebebe4;
-			box-sizing: border-box;
-		}
-		form input#submit,
-		form input#restore {
-			width: 90%;
-			color: #fff;
-			text-transform: uppercase;
-			padding: 7px 15px;
-			margin: 0 5% 0 5%;
-			border: none;
-			border-radius: 7px;
-			cursor: pointer;
-		}
-		form input#submit {
-			margin-bottom: 10px;
-			background: -webkit-linear-gradient(left, #3777ec, #6bcfcb);
-			background: -o-linear-gradient(left, #3777ec, #6bcfcb);
-			background: linear-gradient(to right, #3777ec, #6bcfcb);
-		}
-		form input#restore {
-			background: -webkit-linear-gradient(left, #ec373f, #cf6b79);
-			background: -o-linear-gradient(left, #ec373f, #cf6b79);
-			background: linear-gradient(to right, #ec373f, #cf6b79);
-		}
-		label {
-			position: relative;
-		}
-		.alert_box {
-			width: 300px;
-			display: none;
-			padding: 15px;
-			color: #fff;
-			font-size: 12px;
-			border-radius: 7px;
-			background: #60bdd2;
-			box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);
-			position: absolute;
-			right: -340px;
-			top: -38px;
-			z-index: 2;
-		}
-		.alert_box:before {
-			content: '';
-			border: 10px solid transparent;
-			border-right: 10px solid #60bdd2;
-			position: absolute;
-			top: 40px;
-			left: -6%;
-		}
-		label:not(.off):hover .alert_box {
-			display: inline-block;
-		}
-		.val_result_search {
-			display: none;
-		}
-		span.address {
-			width: 68%;
-			display: inline-block;
-			white-space: nowrap;
-			line-height: 15px;
-			overflow: hidden;
-			-ms-overflow-style: none;
-		}
-		.res:hover span.address {
-			overflow: auto;
-		}
-		span.address::-webkit-scrollbar {
-			width: 0;
-			height: 0;
-		}
-		.arr-addr {
-			display: none;
-		}
-		.off {
-			color: #b1aeae;
-		}
-		.progress {
-			font-size: 14px;
-			width: 300px;
-			margin-left: 20px;
-			word-wrap: break-word;
-		}
-		.progress_header {
-			width: 100%;
-			display: inline-block;
-			font-size: 19px;
-			text-align: center;
-			text-transform: uppercase;
-			background: #fff;
-			border-radius: 7px;
-		}
-		.progress_body {
-			max-height: 520px;
-			overflow: auto;
-		}
-		.progress .progress_body span.size {
-			float: right;
-			color: #d0d0d0;
-		}
-		.progress .progress_body span.line {
-			margin-left: 10px;
-			color: #d0d0d0;
-		}
-		.progress p {
-			margin: 0;
-			border-bottom: 1px solid #e0e0e0;
-		}
-	</style>
+	<style>body {margin: 0;padding: 0;background: #eee;font-family: "Segoe UI", "Source Sans Pro", Calibri, Candara, Arial, sans-serif;font-size: 15px;line-height: 1.58;letter-spacing: -.003em;}.content {height: 100vh;display: -webkit-box;display: -moz-box;display: -ms-flexbox;display: -webkit-flex;display: flex;justify-content: center;align-items:center;}form {width: 300px;background: #fff;padding: 1em;border-radius: 7px;box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);}form > fieldset {border: 1px solid #eee;margin-bottom: 10px;}form > fieldset > legend {text-transform: uppercase;font-size: 12px;}fieldset > ul {list-style: none;margin: 0;padding: 0;}fieldset > ul ul{list-style: none;padding-left: 20px;}form input[type="text"], form input[type="password"] {width: 100%;padding: 5px 7px;border: 1px solid #ebebe4;box-sizing: border-box;}form input#submit, form input#restore {width: 90%;color: #fff;text-transform: uppercase;padding: 7px 15px;margin: 0 5% 0 5%;border: none;border-radius: 7px;cursor: pointer;}form input#submit {margin-bottom: 10px;background: -webkit-linear-gradient(left, #3777ec, #6bcfcb);background: -o-linear-gradient(left, #3777ec, #6bcfcb);background: linear-gradient(to right, #3777ec, #6bcfcb);}form input#restore {background: -webkit-linear-gradient(left, #ec373f, #cf6b79);background: -o-linear-gradient(left, #ec373f, #cf6b79);background: linear-gradient(to right, #ec373f, #cf6b79);}label {position: relative;}.alert_box {width: 300px;display: none;padding: 15px;color: #fff;font-size: 12px;border-radius: 7px;background: #60bdd2;box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);position: absolute;right: -340px;top: -38px;z-index: 2;}.alert_box:before {content: '';border: 10px solid transparent;border-right: 10px solid #60bdd2;position: absolute;top: 40px;left: -6%;}label:not(.off):hover .alert_box {display: inline-block;}.val_result_search {display: none;}span.address {width: 68%;display: inline-block;white-space: nowrap;line-height: 15px;overflow: hidden;-ms-overflow-style: none;}.res:hover span.address {overflow: auto;}span.address::-webkit-scrollbar {width: 0;height: 0;}.arr-addr {display: none;}.off {color: #b1aeae;}.progress {font-size: 14px;width: 300px;margin-left: 20px;word-wrap: break-word;}.progress_header {width: 100%;display: inline-block;font-size: 19px;text-align: center;text-transform: uppercase;background: #fff;border-radius: 7px;}.progress_body {max-height: 520px;overflow: auto;}.progress .progress_body span.size {float: right;color: #d0d0d0;}.progress .progress_body span.line {margin-left: 10px;color: #d0d0d0;}.progress p {margin: 0;border-bottom: 1px solid #e0e0e0;}</style>
 	<section class="wrapper">
 		<div class="content">
 			<form id="substitution" action="" method="POST">
@@ -538,6 +410,7 @@
 											<li>Перезаписываем указанное значение на необходимое в скопированном файле;</li>
 											<li>Импортируем полученный файл, в новую базу данных или первоначальную.</li>
 										</ol>
+										<mark>Регистр введенного значения учитывается.</mark>
 									</span>
 								</label>
 							</li>
@@ -582,8 +455,6 @@
 	<script>
 		var addrElem = document.querySelectorAll('.address');
 		if(addrElem.length > 0) for(var i = 0; i < addrElem.length; i++) addrElem[i].scrollLeft = 1800;
-		
-
 
 		if(document.querySelector('.coincidences')) document.querySelector('.coincidences').innerHTML = document.querySelectorAll('section p.res').length;
 		function showPass (data) {
@@ -635,7 +506,6 @@
 			}
 
 			if(!data.checked && data.id.indexOf('searchbd') !== -1) {
-
 				inphost.disabled = true;
 				inplogin.disabled = true;
 				inppass.disabled = true;
@@ -646,7 +516,6 @@
 				inppass.required = false;
 				inpnamebd.required = false;
 				labelshowpass.classList.add('off');
-
 				checkBackup.checked = false;
 				dopoption.disabled = true;
 				labelbackupnewname.classList.add('off');
@@ -669,7 +538,6 @@
 					replacement.required = false;
 					dopbutton.value = 'Make backup';
 					checkBackup.checked = true;
-
 					inphost.disabled = false;
 					inplogin.disabled = false;
 					inppass.disabled = false;
@@ -677,7 +545,6 @@
 					inpnamebd.disabled = false;
 					inphost.required = true;
 					inplogin.required = true;
-					inppass.required = true;
 					inpnamebd.required = true;
 					labelshowpass.classList.remove('off');
 
@@ -690,7 +557,6 @@
 					replacement.required = false;
 					dopbutton.value = 'Search';
 					checkBackup.checked = false;
-
 					inphost.disabled = true;
 					inplogin.disabled = true;
 					inppass.disabled = true;
@@ -698,10 +564,8 @@
 					inpnamebd.disabled = true;
 					inphost.required = false;
 					inplogin.required = false;
-					inppass.required = false;
 					inpnamebd.required = false;
 					labelshowpass.classList.add('off');
-
 					typeAction.value = '3';
 				} else {
 					replacement.disabled = false;
@@ -715,10 +579,8 @@
 						inpnamebd.disabled = false;
 						inphost.required = true;
 						inplogin.required = true;
-						inppass.required = true;
 						inpnamebd.required = true;
 						labelshowpass.classList.remove('off');
-
 						checkBackup.checked = true;
 					}
 					typeAction.value = '1';
