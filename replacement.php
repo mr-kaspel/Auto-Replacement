@@ -1,6 +1,7 @@
 <?php
 	header('Content-Type: text/html; charset=utf-8');
 	error_reporting(0);
+	set_time_limit(15); // 15 seconds for testing
 	$arrip = ['127.0.0.1'];
 	$bul = 1;
 	if(count($arrip) > 0) {
@@ -33,7 +34,7 @@
 		['engine/data/dbconfig.php', 'DBUSER', 'DBPASS', 'DBNAME', 'DBHOST', 'DLE'],
 		['cfg/connect.inc.php', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_HOST', 'Shop-script'],
 		['core/config/connect.inc.php', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_HOST', 'ShopCMS'],
-		['dblist/логин.xml', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'SQLSERVER', 'WebAsyst'],
+		['dblist/логин.xml', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'SQLSERVER', 'WebAsyst'], // nope
 		['config/settings.inc.php', '_DB_USER_', '_DB_PASSWD_', '_DB_NAME_', '_DB_SERVER_', 'PrestaShop'],
 		['manager/includes/config.inc.php', '\$database_user', '\$database_password', '\$dbase', '\$database_server', 'MODx'],
 		['bitrix/php_interface/dbconn.php', '\$DBLogin', '\$DBPassword', '\$DBName', '\$DBHost', 'Bitrix'],
@@ -47,15 +48,12 @@
 
 	function Export_Database($host,$user,$pass,$name, $dirname) {
 		$arr = array();
-
 		$dblink = mysql_connect($host,$user, $pass);
-
 		if($dblink) {
 			$arr[0] .= '<p>Соединение с сервером установлено.</p>';
 		} else {
 			$arr[0] .= '<p><mark>Ошибка подключения к серверу баз данных.</mark></p>';
 			return $arr;
-
 		}
 
 		$selected = mysql_select_db($name, $dblink);
@@ -165,35 +163,56 @@
 	}
 
 	function deletingChildFolders ($fileText) {
-		$sortText = $fileText;
-		foreach ($sortText as $key => $value) {
+		$result = '';
+		if(count($fileText) > 4) {
+		foreach ($fileText as $key => $value) {
 			$arrState = explode('\\', $value);
-			$endDir = $arrState[count($arrState)];
-			foreach ($sortText as $valTwo) {
-				$arrStateTwo = explode('\\', $valTwo);
-				foreach ($arrStateTwo as $keyThree => $valThree) {
-					if($key !== count($arrStateTwo) && strripos($valThree, $endDir) !== false) {
-						unset($sortText[$key]);
+			$endDir = $arrState[count($arrState)-1];
+			$countArr = count($arrState);
+			foreach ($fileText as $keyTwo => $valTwo) {
+				if($keyTwo !== $key && iconv_strlen($fileText[$key]) > 0) {
+					$arrStateTwo = explode('\\', $valTwo);
+
+					if(strpos($arrState[$countArr-1], $arrStateTwo[$countArr-1]) !== false) {
+						$strOne = str_replace('
+', '', str_replace('\\', '', $valTwo));
+						$strTwo = str_replace('
+', '', str_replace('\\', '', $fileText[$key]));
+
+						if(iconv_strlen($strOne) > 0 && strpos($strOne, $strTwo) !== false) {
+							$fileText[$key] = "";
+							//echo $key;
+							//unset($fileText[$key]);
+						}
+					} else {
 						continue;
 					}
 				}
 			}
 		}
-		return $sortText;
+	}
+		foreach($fileText as $valecho) if(iconv_strlen($valecho) > 0) $result .= $valecho.'
+';
+		return $result;
 	}
 
 	function searchByContentsOfFiles($searchval, $valreplace, $dirname, $param) {
-		if(file_exists($dirname.'\\state_conf.json')) file_put_contents('state_conf.json', '');
+		//if(file_exists($dirname.'\\state_conf.json')) file_put_contents('state_conf.json', ''); //временное решение
 		$folderCheck = '';
+		$startSc = time();
 		if(isset($searchval)) {
-			function search($data, $searchval, $valreplace, $dirname, $param) {
+			function search($data, $searchval, $valreplace, $dirname, $param, $startSc) {
+
+				/*if(time() > ($startSc + 9)) {
+					exit('Скрипт выполняется, ожидайте завершение!'.'<script>location.reload();</script>');
+				}*/
 				$folderCheck = false;
 				foreach(scandir($data) as $key => $val) {
 					$dirN = $data.'\\'.$val;
-					$arrimage = ['.gif', '.jpg', '.jpeg', '.png', '.bmp', '.dib', '.svg', '.tif', '.tiff', 'zip'];
+					$arrimage = ['.gif', '.jpg', '.jpeg', '.png', '.bmp', '.dib', '.svg', '.tif', '.tiff', '.zip', '.rar', '.sql'];
 					if($val !== '.' && $val !== '..' && !array_search(substr($val, strripos($val,'.')), $arrimage)) {
 						if(is_dir($dirN."\\")){
-							$result .= search($dirN, $searchval, $valreplace, $dirname, $param);
+							$result .= search($dirN, $searchval, $valreplace, $dirname, $param, $startSc);
 						} else if(filesize($dirN) < 9999999 && strripos(file_get_contents($dirN), $searchval)) {
 							$ab = '';
 							/*foreach(file($dirN) as $num => $str) {
@@ -211,16 +230,15 @@
 						}
 					}
 				}
-				$fd = fopen("state_conf.json", 'a+') or die("не удалось создать файл");
-				$json = json_decode(file_get_contents('state_conf.json'), true);
-				$json[] = $data;
-				//$json = deletingChildFolders ($json);
-				$json = json_encode($json);
-				fwrite($fd, $json);
-				fclose($fd);
+				//$fd = fopen("state_conf.json", 'a') or die("не удалось создать файл");
+				/*$json .= $data.'
+';*/
+				//$json = deletingChildFolders($json);
+				//fwrite($fd, $json);
+				//fclose($fd);
 				return $result;
 			}
-			return search($dirname, $searchval, $valreplace, $dirname, $param);
+			return search($dirname, $searchval, $valreplace, $dirname, $param, $startSc);
 		}
 	}
 
@@ -235,38 +253,21 @@
 		return $result;
 	}
 
-	function cmsCheckFile($file) {
-		if(file_exists($file)) {
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	function parsingData($data1, $data2, $data3, $data4, $data5, $textfile) {
-		return $nameCMS = data5;
-
-	}
-
-
 	function parseDataCMS($files, $elem) {
-		if(preg_match('/'.$elem.'(\s=\s|[\'"],\s|[\'"]]\s=\s)[\'"](.*)[\'"]/', $files, $m)) {
+		if(preg_match('/'.$elem.'(\s.*=\s|[\'"],\s|[\'"]]\s=\s)[\'"](.*)[\'"]/', $files, $m)) {
 				return $m[2];
 			}
 	}
 
 	foreach($arrCMS as $key => $value) {
-		if(cmsCheckFile($value[0], $value[1], $value[2], $value[3], $value[4], $value[5])) {
+		if(file_exists($value[0])) {
 			$text = file_get_contents($value[0]);
 			$nameCMS = $value[5];
-			parsingData($value[1], $value[2], $value[3], $value[4], $value[5], $text);
 			$userbd = parseDataCMS($text, $value[1]);
 			$passwordbd = parseDataCMS($text, $value[2]);
 			$db_ = parseDataCMS($text, $value[3]);
 			$linkbd = parseDataCMS($text, $value[4]);
 			break;
-		} else {
-			echo 'NaN'.'<br>';
 		}
 	}
 
@@ -295,7 +296,7 @@
 					$report .= '<p><b>Были найдены и перезаписаны значения в файлах:</b></p>';
 					$report .= searchByContentsOfFiles($searchval, $valreplace, $dirname, 1);
 				} else {
-					
+
 				}
 				break;
 			case '2':
@@ -317,24 +318,25 @@
 		$report .= strlen($db_) == 0 ? '<p>name_bd: <mark>не найден</mark>.</p>' : '<p>name_bd: <b>найден</b>.</p>';
 		$report .= '<hr> <mark>Бэкап файлов не производится автоматически, убедитесь, что у вас есть резервная копия текущей версии файлов сайта!</mark><br>';
 		$report .= '<hr><mark>Если новое имя базы данных не задано, будет перезаписана текущая!</mark>';
-		$report .= '<hr><p>Если необходимо сделать только бэкап bd, снимите все доступные чекбоксы.</p><p>Если необходимо найти файлы, с вхождением определенного значения, отключите все флаги кроме "Поиск в файлах на ftp".<br>После данного действия возможно выбрать "Замена вхождений в файлах" и выделить файлы в которых необходимо произвести замену.</p><hr>';
+		$report .= '<hr><p>Если необходимо сделать только бэкап bd, снимите все доступные чекбоксы. Перед этим необходимо отчистить кэшь, если имеется данная возможность в панели администратора вашей CMS.</p><p>Если необходимо найти файлы, с вхождением определенного значения, отключите все флаги кроме "Поиск в файлах на ftp".<br>После поиска возможно выбрать "Замена вхождений в файлах" и выделить файлы в которых необходимо произвести замену.</p><hr>';
 	}
 
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 	<meta charset="UTF-8">
 	<title>Auto Replacement</title>
-
 </head>
 <body>
-	<style>body {margin: 0;padding: 0;background: #eee;font-family: "Segoe UI", "Source Sans Pro", Calibri, Candara, Arial, sans-serif;font-size: 15px;line-height: 1.58;letter-spacing: -.003em;}.content {height: 100vh;display: -webkit-box;display: -moz-box;display: -ms-flexbox;display: -webkit-flex;display: flex;justify-content: center;align-items:center;}form {width: 300px;background: #fff;padding: 1em;border-radius: 7px;box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);}form > fieldset {border: 1px solid #eee;margin-bottom: 10px;}form > fieldset > legend {text-transform: uppercase;font-size: 12px;}fieldset > ul {list-style: none;margin: 0;padding: 0;}fieldset > ul ul{list-style: none;padding-left: 20px;}form input[type="text"], form input[type="password"] {width: 100%;padding: 5px 7px;border: 1px solid #ebebe4;box-sizing: border-box;}form input#submit, form input#restore {width: 90%;color: #fff;text-transform: uppercase;padding: 7px 15px;margin: 0 5% 0 5%;border: none;border-radius: 7px;cursor: pointer;}form input#submit {margin-bottom: 10px;background: -webkit-linear-gradient(left, #3777ec, #6bcfcb);background: -o-linear-gradient(left, #3777ec, #6bcfcb);background: linear-gradient(to right, #3777ec, #6bcfcb);}form input#restore {background: -webkit-linear-gradient(left, #ec373f, #cf6b79);background: -o-linear-gradient(left, #ec373f, #cf6b79);background: linear-gradient(to right, #ec373f, #cf6b79);}label {position: relative;}.alert_box {width: 300px;display: none;padding: 15px;color: #fff;font-size: 12px;border-radius: 7px;background: #60bdd2;box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);position: absolute;right: -340px;top: -38px;z-index: 2;}.alert_box:before {content: '';border: 10px solid transparent;border-right: 10px solid #60bdd2;position: absolute;top: 40px;left: -6%;}label:not(.off):hover .alert_box {display: inline-block;}.val_result_search {display: none;}span.address {width: 68%;display: inline-block;white-space: nowrap;line-height: 15px;overflow: hidden;-ms-overflow-style: none;}.res:hover span.address {overflow: auto;}span.address::-webkit-scrollbar {width: 0;height: 0;}.arr-addr {display: none;}.off {color: #b1aeae;}.progress {font-size: 14px;width: 300px;margin-left: 20px;word-wrap: break-word;}.progress_header {width: 100%;display: inline-block;font-size: 19px;text-align: center;text-transform: uppercase;background: #fff;border-radius: 7px;}.progress_body {max-height: 520px;overflow: auto;}.progress .progress_body span.size {float: right;color: #d0d0d0;}.progress .progress_body span.line {margin-left: 10px;color: #d0d0d0;}.progress p {margin: 0;border-bottom: 1px solid #e0e0e0;}</style>
+	<style>
+		body {margin: 0;padding: 0;background: #eee;font-family: "Segoe UI", "Source Sans Pro", Calibri, Candara, Arial, sans-serif;font-size: 15px;line-height: 1.58;letter-spacing: -.003em;}.content {height: 100vh;display: -webkit-box;display: -moz-box;display: -ms-flexbox;display: -webkit-flex;display: flex;justify-content: center;align-items:center;}form {width: 300px;background: #fff;padding: 1em;border-radius: 7px;box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);}form > fieldset {border: 1px solid #eee;margin-bottom: 10px;}form > fieldset > legend {text-transform: uppercase;font-size: 12px;}fieldset > ul {list-style: none;margin: 0;padding: 0;}fieldset > ul ul{list-style: none;padding-left: 20px;}form input[type="text"], form input[type="password"] {width: 100%;padding: 5px 7px;border: 1px solid #ebebe4;box-sizing: border-box;}form input#submit, form input#restore {width: 90%;color: #fff;text-transform: uppercase;padding: 7px 15px;margin: 0 5% 0 5%;border: none;border-radius: 7px;cursor: pointer;}form input#submit {margin-bottom: 10px;background: -webkit-linear-gradient(left, #3777ec, #6bcfcb);background: -o-linear-gradient(left, #3777ec, #6bcfcb);background: linear-gradient(to right, #3777ec, #6bcfcb);}form input#restore {background: -webkit-linear-gradient(left, #ec373f, #cf6b79);background: -o-linear-gradient(left, #ec373f, #cf6b79);background: linear-gradient(to right, #ec373f, #cf6b79);}label {position: relative;}.alert_box {width: 300px;display: none;padding: 15px;color: #fff;font-size: 12px;border-radius: 7px;background: #60bdd2;box-shadow: 0 1px 20px 0 rgba(0,0,0,.1);position: absolute;right: -340px;top: -38px;z-index: 2;}.alert_box:before {content: '';border: 10px solid transparent;border-right: 10px solid #60bdd2;position: absolute;top: 40px;left: -6%;}label:not(.off):hover .alert_box {display: inline-block;}.val_result_search {display: none;}span.address {width: 65%;display: inline-block;white-space: nowrap;line-height: 15px;overflow: hidden;-ms-overflow-style: none;}.res:hover span.address {overflow: auto;}span.address::-webkit-scrollbar {width: 0;height: 0;}.arr-addr {display: none;}.off {color: #b1aeae;}.progress {font-size: 14px;width: 300px;margin-left: 20px;word-wrap: break-word;}.progress_header {width: 100%;display: inline-block;font-size: 19px;text-align: center;text-transform: uppercase;background: #fff;border-radius: 7px;}.progress_body {max-height: 520px;overflow: auto;}.progress .progress_body span.size {width: 27%;display: inline-block;text-align: right;color: #d0d0d0;}.progress .progress_body span.line {margin-left: 10px;color: #d0d0d0;}.progress p {margin: 0;border-bottom: 1px solid #e0e0e0;}
+	</style>
 	<section class="wrapper">
 		<div class="content">
 			<form id="substitution" action="" method="POST">
 				<input type="hidden" name="type_action" id="type_action" value="1">
-				<div class="meanings_headr">Replace value</div>
+				<div class="meanings_headr">Replace value <img src="https://img.icons8.com/color/48/000000/finn.png"></div>
 				<fieldset>
 					<legend>Подключение к bd</legend>
 					<ul>
@@ -360,7 +362,6 @@
 						</li>
 					</ul>
 				</fieldset>
-
 				<fieldset>
 					<legend>Значения для замены</legend>
 					<ul>
@@ -374,7 +375,6 @@
 						</li>
 					</ul>
 				</fieldset>
-
 				<fieldset>
 					<legend>Где искать?</legend>
 						<ul>
@@ -383,7 +383,8 @@
 								<label for="searchfile">
 										Поиск в файлах на ftp
 									<span class="alert_box">
-										Если выбран только данный флаг, без дочернего, будет получен список файлов где были совпадения искомого значений.<br>Поиск происходит с директории в которой расположен файл.<br>Поиск по содержимому файла производится ели размер не превышает 10 мегабайт.<br>Из поиска исключены изображения.<br>После поиска появляется возможность выделить файлы в которых необходимо заменить значение, для этого необходимо активировать "Замена вхождений в файлах".
+										Если выбран только данный флаг, без дочернего, будет получен список файлов где были совпадения искомого значений.<br>Поиск происходит с директории в которой расположен файл.<br>Поиск по содержимому файла производится ели размер не превышает 10 мегабайт.<br>Из поиска исключены изображения.<br>После поиска появляется возможность выделить файлы в которых необходимо заменить значение, для этого необходимо активировать "Замена вхождений в файлах".<br>
+										<mark>Регистр учитывается.</mark>
 									</span>
 								</label>
 								<ul>
@@ -403,20 +404,19 @@
 								<label for="searchbd">
 									Поиск и замена в bd
 									<span class="alert_box">
-										Последовательность действий:
+										Последовательность действий скрипта:
 										<ol>
 											<li>Сохраняем копию bd в папке "\backup_cms_bd\";</li>
 											<li>Копируем сохранённый файл в директорию "\backup_cms_bd\replace_copy_sql\";</li>
 											<li>Перезаписываем указанное значение на необходимое в скопированном файле;</li>
 											<li>Импортируем полученный файл, в новую базу данных или первоначальную.</li>
 										</ol>
-										<mark>Регистр введенного значения учитывается.</mark>
+										<mark>Регистр учитывается.</mark>
 									</span>
 								</label>
 							</li>
 						</ul>
 				</fieldset>
-
 				<fieldset>
 					<legend>Backup bd</legend>
 					<ul>
@@ -444,7 +444,6 @@
 					<textarea class="arr-addr" name="arr-addr" id="arr-addr"></textarea>
 				<? } ?>
 			</form>
-
 			<div class="progress">
 				<div class="progress_header">report</div>
 				<div class="progress_body"><?=$report;?></div>
@@ -519,7 +518,6 @@
 				checkBackup.checked = false;
 				dopoption.disabled = true;
 				labelbackupnewname.classList.add('off');
-
 				if(!dopinput.disabled) {
 					dopinput.disabled = true;
 					dopinput.required = false;
@@ -545,10 +543,11 @@
 					inpnamebd.disabled = false;
 					inphost.required = true;
 					inplogin.required = true;
+					//inppass.required = true;
 					inpnamebd.required = true;
 					labelshowpass.classList.remove('off');
-
 					typeAction.value = '2';
+					//class="off"
 			}else {
 				textSearch.disabled = false;
 				textSearch.required = true;
@@ -564,6 +563,7 @@
 					inpnamebd.disabled = true;
 					inphost.required = false;
 					inplogin.required = false;
+					//inppass.required = false;
 					inpnamebd.required = false;
 					labelshowpass.classList.add('off');
 					typeAction.value = '3';
@@ -579,6 +579,7 @@
 						inpnamebd.disabled = false;
 						inphost.required = true;
 						inplogin.required = true;
+						//inppass.required = true;
 						inpnamebd.required = true;
 						labelshowpass.classList.remove('off');
 						checkBackup.checked = true;
@@ -590,7 +591,6 @@
 
 		function newBackup (data) {
 			var elem = document.getElementById('new_name_bd');
-
 			if(data) {
 				elem.disabled = false;
 				elem.required = true;
@@ -598,7 +598,6 @@
 				elem.disabled = true;
 				elem.required = false;
 			}
-
 		}
 
 		var documentrestore = document.getElementById('restore');
